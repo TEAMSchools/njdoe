@@ -1,12 +1,6 @@
 from . import BeautifulSoup, requests
-import pkg_resources
 
 SESSION = requests.Session()
-
-## load cached ssl cert because NJ DOE's cert chain is broken :P
-resource_package = __name__
-resource_path = '/'.join(('ssl_certificates', 'njdoehomeroom.ca-bundle'))
-SESSION.verify = pkg_resources.resource_filename(resource_package, resource_path)
 
 class ApprovalRecord:
     def __init__(self, applicant, approval_history):
@@ -52,14 +46,18 @@ def applicant_approval_employment_history(ssn1, ssn2, ssn3, dob_month, dob_day, 
 
     results_html = results_page.text
     results_soup = BeautifulSoup(results_html, 'lxml')
-    results_table = results_soup.find('table', {'class' : 'apprv-list first-table last-table'}) # results table
+    results_tables = results_soup.find_all('table', {'class' : r'apprv-list'}) # results table
 
-    if results_table:
-        applicant_tr = results_table.find('tr', attrs={'class': 'applicant'}) # applicant data
-        approval_tr_list = [tr for tr in results_table.find_all('tr') if tr.find_all('td')] # approval data
-
+    if results_tables:
+        applicant_tr = results_tables[0].find('tr', attrs={'class': 'applicant'}) # applicant data, pull only from 1st table
         applicant_record = Applicant(applicant_tr)
-        approval_history = ApprovalHistory(approval_tr_list)
+
+        approval_tr_lists = []
+        for rt in results_tables:
+            approval_tr_list = [tr for tr in rt.find_all('tr') if tr.find_all('td')] # approval data
+            approval_tr_lists.extend(approval_tr_list)
+
+        approval_history = ApprovalHistory(approval_tr_lists)
 
         applicant_approval_record = ApprovalRecord(applicant_record, approval_history)
 
